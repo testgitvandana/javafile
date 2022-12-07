@@ -1,0 +1,91 @@
+public class WorkingTime {
+
+private static final long ONE_SECOND_AS_MILISECONDS = TimeUnit.SECONDS.convert(1, TimeUnit.SECONDS);
+
+private Integer startHour;
+private Integer endHour;
+private Integer startMinute;
+private Integer endMinute;
+
+public WorkingTime(int startHour, int endHour) {
+    this(startHour, 0, endHour, 0);
+}
+
+public WorkingTime(Integer startHour, Integer startMinute, 
+        Integer endHour, Integer endMinute) {
+    super();
+    this.startHour = startHour;
+    this.endHour = endHour;
+    this.startMinute = startMinute;
+    this.endMinute = endMinute;
+}
+
+... getters and setters
+
+public long calculateWorkingAsMilis(Date date1, Date date2) {
+    return ONE_SECOND_AS_MILISECONDS * calculateWorkingSeconds(date1, date2);
+}
+
+public long calculateWorkingSeconds(Date date1, Date date2) {
+    Calendar cal1 = Calendar.getInstance();
+    cal1.setTime(date1);
+    setWorkingCalendar(cal1);
+
+    Calendar cal2 = Calendar.getInstance();
+    cal2.setTime(date2);
+    setWorkingCalendar(cal2);
+
+    long day1 = TimeUnit.MILLISECONDS.toDays(cal1.getTimeInMillis());
+    long day2 = TimeUnit.MILLISECONDS.toDays(cal2.getTimeInMillis());
+    long daydiff = day2 - day1;
+    long weekendDiff = (daydiff / 7); // get number of weekends
+    if (isLeakWeekend(cal1, cal2))
+        weekendDiff++;
+
+    long dailyWorkingTimeAsMinutes = getDailyWorkingTimeAsMinutes();
+    long secondsToBeDecrementedAsNonWorkingHours = TimeUnit.SECONDS.convert((24 * 60 - dailyWorkingTimeAsMinutes), TimeUnit.MINUTES); // seconds that are not in interval of working hours
+    long secondsToBeDecrementedAsWorkingHoursForWeekends = TimeUnit.SECONDS.convert(dailyWorkingTimeAsMinutes * 2, TimeUnit.MINUTES); // weekend is not working days, they need to be decremented
+
+    long dayDiffAsSeconds = daydiff * secondsToBeDecrementedAsNonWorkingHours;
+    dayDiffAsSeconds += (weekendDiff * secondsToBeDecrementedAsWorkingHoursForWeekends); 
+
+    long workDiffSeconds = TimeUnit.SECONDS.convert(
+            cal2.getTimeInMillis() - cal1.getTimeInMillis(),
+            TimeUnit.MILLISECONDS) - dayDiffAsSeconds; 
+    return workDiffSeconds;
+}
+
+private boolean isLeakWeekend(Calendar cal1, Calendar cal2) {
+    if (cal1.get(Calendar.DAY_OF_WEEK) > cal2.get(Calendar.DAY_OF_WEEK))
+        return true;
+    return false;
+}
+
+private long getDailyWorkingTimeAsMinutes() {
+    return (getEndHour() * 60 + getEndMinute()) - (getStartHour() * 60 + getStartMinute());
+}
+
+private Calendar setWorkingCalendar(Calendar cal) {
+    if (cal.get(Calendar.DAY_OF_WEEK) == Calendar.SUNDAY) {
+        cal.set(Calendar.DAY_OF_YEAR, cal.get(Calendar.DAY_OF_YEAR) + 1);
+        resetWorkingHourAndSeconds(cal);
+    } else if (cal.get(Calendar.DAY_OF_WEEK) == Calendar.SATURDAY) {
+        cal.set(Calendar.DAY_OF_YEAR, cal.get(Calendar.DAY_OF_YEAR) + 2);
+        resetWorkingHourAndSeconds(cal);
+    } else if (cal.get(Calendar.HOUR_OF_DAY) > endHour || (cal.get(Calendar.HOUR_OF_DAY) == endHour && cal.get(Calendar.MINUTE) > endMinute)) {
+        cal.set(Calendar.HOUR_OF_DAY, endHour);
+        cal.set(Calendar.MINUTE, endMinute);
+    } else if (cal.get(Calendar.HOUR_OF_DAY) < startHour || (cal.get(Calendar.HOUR_OF_DAY) == startHour && cal.get(Calendar.MINUTE) < startMinute)) {
+        cal.set(Calendar.HOUR_OF_DAY, startHour);
+        cal.set(Calendar.MINUTE, startMinute);
+    }
+    return cal;
+}
+private Calendar resetWorkingHourAndSeconds(Calendar cal) {
+    cal.set(Calendar.HOUR_OF_DAY, startHour);
+    cal.set(Calendar.MINUTE, startMinute);
+    cal.set(Calendar.SECOND, 0);
+    cal.set(Calendar.MILLISECOND, 0);
+    return cal;
+}
+}
